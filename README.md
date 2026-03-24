@@ -1,0 +1,750 @@
+# Sistema de Gestión de Usuarios
+
+Guía técnica completa para construir este proyecto desde cero.  
+Al seguir cada paso obtendrás una aplicación React funcional al 100% que consume una API REST con operaciones CRUD completas (Crear, Leer, Actualizar, Eliminar) sobre usuarios, con estilos Bootstrap 5.
+
+---
+
+## Índice
+
+1. [¿Qué vamos a construir?](#1-qué-vamos-a-construir)
+2. [Requisitos previos](#2-requisitos-previos)
+3. [Crear el proyecto con Vite](#3-crear-el-proyecto-con-vite)
+4. [Instalar dependencias](#4-instalar-dependencias)
+5. [Añadir Bootstrap 5](#5-añadir-bootstrap-5)
+6. [Estructura de carpetas](#6-estructura-de-carpetas)
+7. [Archivo por archivo — explicación línea a línea](#7-archivo-por-archivo--explicación-línea-a-línea)
+   - [main.jsx](#71-mainjsx)
+   - [App.jsx](#72-appjsx)
+   - [routes/AppRouter.jsx](#73-routesapprouterjsx)
+   - [api/user.api.js](#74-apiuserapijs)
+   - [components/UserForm.jsx](#75-componentsuserformjsx)
+   - [pages/Users.jsx](#76-pagesUsersjsx)
+8. [La API REST esperada](#8-la-api-rest-esperada)
+9. [Ejecutar el proyecto](#9-ejecutar-el-proyecto)
+10. [Conceptos clave explicados](#10-conceptos-clave-explicados)
+
+---
+
+## 1. ¿Qué vamos a construir?
+
+Una SPA (Single Page Application) en React que:
+
+- **Lista** todos los usuarios registrados en una tabla.
+- **Crea** nuevos usuarios mediante un formulario.
+- **Edita** un usuario existente (el formulario se pre-rellena al hacer clic en "Editar").
+- **Elimina** un usuario con confirmación previa.
+
+La aplicación se comunica con una API REST externa en `http://localhost:3000/api/users`.
+
+---
+
+## 2. Requisitos previos
+
+| Herramienta | Versión mínima | Para qué sirve |
+|---|---|---|
+| Node.js | 18+ | Ejecutar JavaScript fuera del navegador y gestionar paquetes con npm |
+| npm | 9+ | Instalar librerías (viene incluido con Node.js) |
+| Editor | VS Code recomendado | Escribir el código |
+| API backend | Corriendo en puerto 3000 | Proveer los datos de usuarios |
+
+Verifica que tienes Node instalado:
+
+```bash
+node -v
+npm -v
+```
+
+---
+
+## 3. Crear el proyecto con Vite
+
+**Vite** es una herramienta moderna que crea y arranca proyectos React muy rápido.
+
+```bash
+npm create vite@latest mps-frontend -- --template react
+cd mps-frontend
+npm install
+```
+
+**¿Por qué Vite y no Create React App?**  
+Vite es más rápido en desarrollo, usa ES Modules nativos del navegador y tiene una configuración más sencilla.
+
+---
+
+## 4. Instalar dependencias
+
+```bash
+npm install axios react-router-dom
+```
+
+| Paquete | ¿Qué hace? | ¿Por qué lo necesitamos? |
+|---|---|---|
+| `axios` | Realiza peticiones HTTP (GET, POST, PUT, DELETE) | Es más cómodo que `fetch`: maneja errores mejor y parsea JSON automáticamente |
+| `react-router-dom` | Gestiona la navegación entre páginas sin recargar el navegador | Permite crear rutas tipo `/`, `/usuarios`, etc. en una SPA |
+
+---
+
+## 5. Añadir Bootstrap 5
+
+No instalamos Bootstrap como paquete npm — lo cargamos desde CDN para mantener el proyecto simple.
+
+Edita `index.html` para que quede exactamente así:
+
+```html
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+
+    <!-- viewport: hace que el diseño sea responsivo en pantallas pequeñas -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>MPS - Sistema de Usuarios</title>
+
+    <!-- Bootstrap 5: estilos CSS cargados desde internet (CDN).       -->
+    <!-- Sin esto, los className="btn btn-primary" no tienen estilo.   -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <!-- React montará toda la aplicación dentro de este div -->
+    <div id="root"></div>
+
+    <!-- Punto de entrada del código JavaScript de React -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+```
+
+**¿Por qué `lang="es"`?** Indica al navegador que el contenido está en español (buenas prácticas de accesibilidad y SEO).
+
+---
+
+## 6. Estructura de carpetas
+
+Crea exactamente esta estructura dentro de `src/`:
+
+```
+mps-frontend/
+├── index.html              ← HTML base, único archivo HTML del proyecto
+├── package.json            ← Dependencias y scripts del proyecto
+├── vite.config.js          ← Configuración de Vite (no modificar)
+└── src/
+    ├── main.jsx            ← Punto de entrada: monta React en el DOM
+    ├── App.jsx             ← Componente raíz: carga el enrutador
+    ├── index.css           ← Estilos globales opcionales (puede estar vacío)
+    ├── api/
+    │   └── user.api.js     ← Todas las llamadas HTTP a la API de usuarios
+    ├── components/
+    │   └── UserForm.jsx    ← Formulario reutilizable (crear y editar)
+    ├── pages/
+    │   └── Users.jsx       ← Página principal: lista + formulario
+    └── routes/
+        └── AppRouter.jsx   ← Definición de rutas de la aplicación
+```
+
+**Regla de organización:**
+- `api/` → todo lo que se comunica con el servidor.
+- `components/` → piezas de UI reutilizables (pueden usarse en varias páginas).
+- `pages/` → vistas completas, una por ruta.
+- `routes/` → configuración de navegación.
+
+---
+
+## 7. Archivo por archivo — explicación línea a línea
+
+### 7.1 `main.jsx`
+
+Es el **punto de entrada** de la aplicación. Vite lo ejecuta primero.
+
+```jsx
+// StrictMode: componente especial de React que activa advertencias extra
+// durante el desarrollo para ayudarte a encontrar errores potenciales.
+// NO afecta al comportamiento ni al resultado en producción.
+import { StrictMode } from 'react'
+
+// createRoot: función moderna de React 18+ para montar la aplicación.
+// Reemplaza al antiguo ReactDOM.render() de React 17.
+import { createRoot } from 'react-dom/client'
+
+// Importa los estilos globales. Puede estar vacío; lo dejamos por si
+// queremos añadir estilos personalizados en el futuro.
+import './index.css'
+
+// Importa el componente raíz de la aplicación
+import App from './App.jsx'
+
+// document.getElementById('root') → busca el <div id="root"> en index.html
+// createRoot(...)                 → prepara React para controlar ese div
+// .render(...)                    → dibuja el árbol de componentes dentro del div
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />   {/* Todo el árbol de componentes empieza aquí */}
+  </StrictMode>,
+)
+```
+
+---
+
+### 7.2 `App.jsx`
+
+Componente raíz. Su única responsabilidad es delegar al enrutador.
+
+```jsx
+// Importa el componente que contiene todas las rutas de la aplicación
+import AppRouter from './routes/AppRouter';
+
+// Todo componente React es una función que devuelve JSX
+function App() {
+  // Delega el control al enrutador
+  return <AppRouter />;
+}
+
+// export default → permite importar este componente con:
+// import App from './App'   (sin llaves)
+export default App;
+```
+
+**¿Por qué no poner las rutas directamente aquí?**  
+Separar rutas en `AppRouter` mantiene `App.jsx` limpio. Si mañana agregas 10 rutas o una barra de navegación, `App.jsx` no cambia.
+
+---
+
+### 7.3 `routes/AppRouter.jsx`
+
+Define qué componente se muestra según la URL del navegador.
+
+```jsx
+// BrowserRouter → activa el sistema de rutas usando la API de historial
+//                 del navegador. Las URLs se ven limpias: /usuarios (no /#/usuarios)
+// Routes        → contenedor de rutas. Evalúa de arriba hacia abajo
+//                 y muestra solo la primera que coincide con la URL actual.
+// Route         → una regla individual: si la URL coincide con `path`,
+//                 renderiza el `element` indicado.
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+// Importa la única página que tenemos por ahora
+import Users from '../pages/Users';
+
+function AppRouter() {
+  return (
+    // BrowserRouter debe envolver todo el árbol de rutas.
+    // Activa el contexto de navegación para todos los componentes hijos.
+    <BrowserRouter>
+
+      {/* Routes: solo renderiza la ruta que coincide con la URL actual */}
+      <Routes>
+
+        {/* path="/"         → coincide con localhost:5173/          */}
+        {/* element={<Users />} → renderiza el componente Users       */}
+        <Route path="/" element={<Users />} />
+
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default AppRouter;
+```
+
+---
+
+### 7.4 `api/user.api.js`
+
+Centraliza **todas** las llamadas HTTP. Ningún otro archivo escribe URLs directamente.
+
+```js
+// axios es la librería que realiza las peticiones HTTP.
+// Devuelve Promises con { data, status, headers, ... }
+import axios from 'axios';
+
+// URL base de la API.
+// Al tenerla en una constante, si el servidor cambia (ej: de puerto 3000 a 8000)
+// solo modificamos esta línea y todo el proyecto se actualiza automáticamente.
+const API = 'http://localhost:3000/api/users';
+
+// GET /api/users
+// Devuelve una Promise. El llamador usa `await` para esperar la respuesta.
+// La respuesta estará en res.data (axios extrae automáticamente el JSON)
+export const getUsers = () => axios.get(API);
+
+// GET /api/users/:id
+// Template literal `${API}/${id}` construye la URL con el id dinámicamente.
+// Ejemplo: getUserById(3) → GET http://localhost:3000/api/users/3
+export const getUserById = (id) => axios.get(`${API}/${id}`);
+
+// POST /api/users
+// `data` debe ser un objeto: { name: "Juan", email: "juan@ejemplo.com" }
+// axios.post serializa automáticamente el objeto a JSON y añade el
+// header Content-Type: application/json
+export const createUser = (data) => axios.post(API, data);
+
+// PUT /api/users/:id
+// Reemplaza todos los campos del usuario con los nuevos datos.
+// Ejemplo: updateUser(3, { name: "Juan Actualizado", email: "nuevo@mail.com" })
+export const updateUser = (id, data) => axios.put(`${API}/${id}`, data);
+
+// DELETE /api/users/:id
+// Elimina permanentemente el usuario con ese id.
+// Ejemplo: deleteUser(3) → DELETE http://localhost:3000/api/users/3
+export const deleteUser = (id) => axios.delete(`${API}/${id}`);
+```
+
+---
+
+### 7.5 `components/UserForm.jsx`
+
+Formulario **controlado** que sirve tanto para crear como para editar usuarios.
+
+```jsx
+import { useState, useEffect } from 'react';
+import { createUser, updateUser } from '../api/user.api';
+
+// Props que recibe este componente desde Users.jsx:
+//   onSaved      → función a ejecutar cuando se guarda correctamente
+//   selectedUser → objeto { id, name, email } en modo edición, o null en modo creación
+//   onCancelEdit → función para abandonar el modo edición
+function UserForm({ onSaved, selectedUser, onCancelEdit }) {
+
+  // Estado del formulario: contiene los valores actuales de los campos.
+  // "Formulario controlado" = React controla el valor de cada input.
+  // Cada vez que el usuario escribe, React actualiza el estado y re-renderiza.
+  const [form, setForm] = useState({ name: '', email: '' });
+
+  // useEffect se ejecuta DESPUÉS de cada render en el que `selectedUser` cambie.
+  // Propósito: sincronizar el formulario con el usuario seleccionado.
+  //   - Si selectedUser tiene datos → pre-rellena los inputs (modo edición)
+  //   - Si selectedUser es null     → limpia los inputs (modo creación)
+  useEffect(() => {
+    if (selectedUser) {
+      setForm({ name: selectedUser.name, email: selectedUser.email });
+    } else {
+      setForm({ name: '', email: '' });
+    }
+  }, [selectedUser]); // ← se re-ejecuta cada vez que selectedUser cambia
+
+  // Se dispara con cada tecla que el usuario escribe en cualquier input.
+  // e.target.name  → el atributo `name` del input que disparó el evento ("name" o "email")
+  // e.target.value → el texto actual del input
+  // ...form → spread: copia todos los campos actuales del estado
+  // [e.target.name]: e.target.value → actualiza solo el campo que cambió
+  function handleChange(e) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  }
+
+  // Se ejecuta cuando el usuario hace clic en "Guardar" o "Actualizar".
+  async function handleSubmit(e) {
+    // preventDefault() impide el comportamiento por defecto del formulario:
+    // sin esto, el navegador recargaría la página al enviar el form.
+    e.preventDefault();
+
+    if (selectedUser) {
+      // Modo edición: actualizamos el usuario usando su id
+      await updateUser(selectedUser.id, form);
+    } else {
+      // Modo creación: enviamos los datos del formulario como nuevo usuario
+      await createUser(form);
+    }
+
+    // Limpia el formulario tras guardar exitosamente
+    setForm({ name: '', email: '' });
+
+    // Notifica al componente padre (Users.jsx) para que recargue la lista
+    onSaved();
+  }
+
+  return (
+    // onSubmit conecta el evento "submit" del formulario con handleSubmit
+    <form onSubmit={handleSubmit}>
+
+      {/* Bootstrap: row crea una fila; g-3 añade separación entre columnas */}
+      <div className="row g-3">
+
+        {/* col-md-5: ocupa 5 de 12 columnas en pantallas medianas y grandes */}
+        <div className="col-md-5">
+          <input
+            className="form-control"  {/* Bootstrap: estiliza el input con bordes y padding */}
+            name="name"               {/* debe coincidir con la clave en el estado `form` */}
+            placeholder="Nombre"
+            value={form.name}         {/* valor controlado: React controla lo que muestra el input */}
+            onChange={handleChange}   {/* actualiza el estado al escribir */}
+            required                  {/* HTML5: el navegador bloquea el envío si está vacío */}
+          />
+        </div>
+
+        <div className="col-md-5">
+          <input
+            className="form-control"
+            type="email"              {/* HTML5: valida formato email antes de enviar */}
+            name="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        {/* col-md-2: columna estrecha para botones */}
+        {/* d-flex: display flex (botones en fila) */}
+        {/* gap-2: separación entre botones */}
+        <div className="col-md-2 d-flex gap-2">
+
+          {/* Botón dinámico: azul (btn-primary) para crear, amarillo (btn-warning) para editar */}
+          <button
+            type="submit"
+            className={`btn ${selectedUser ? 'btn-warning' : 'btn-primary'} w-100`}
+          >
+            {/* Texto dinámico según el modo actual */}
+            {selectedUser ? 'Actualizar' : 'Guardar'}
+          </button>
+
+          {/* Renderizado condicional: el botón Cancelar SOLO aparece en modo edición */}
+          {selectedUser && (
+            <button
+              type="button"              {/* IMPORTANTE: sin type="button", haría submit al formulario */}
+              className="btn btn-secondary w-100"
+              onClick={onCancelEdit}     {/* avisa al padre para limpiar selectedUser */}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+      </div>
+    </form>
+  );
+}
+
+export default UserForm;
+```
+
+---
+
+### 7.6 `pages/Users.jsx`
+
+Página principal. **Orquesta** el formulario y la tabla: gestiona el estado global de la vista y delega a los componentes hijos.
+
+```jsx
+import { useEffect, useState } from 'react';
+import { getUsers, deleteUser } from '../api/user.api';
+import UserForm from '../components/UserForm';
+
+function Users() {
+
+  // users: array con todos los usuarios cargados de la API.
+  // Valor inicial: array vacío (antes de que llegue la respuesta)
+  const [users, setUsers] = useState([]);
+
+  // selectedUser: el usuario que se está editando actualmente.
+  // null = modo creación | objeto { id, name, email } = modo edición
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  // useEffect con dependencias vacías [] → se ejecuta UNA sola vez
+  // cuando el componente se monta en el DOM (equivale a "al cargar la página").
+  // Efecto: carga la lista de usuarios al iniciar.
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  // Llama a la API, recibe los datos y los guarda en el estado.
+  // Como modifica el DOM (a través de setUsers), React re-renderiza la tabla.
+  async function loadUsers() {
+    const res = await getUsers();
+    const data = res.data; // axios guarda el JSON de la respuesta en .data
+
+    // Compatibilidad con APIs que devuelven arrays en lugar de objetos:
+    //   Formato array:  [[1, "Juan", "juan@mail.com"], [2, "Ana", "ana@mail.com"]]
+    //   Formato objeto: [{ id: 1, name: "Juan", email: "juan@mail.com" }, ...]
+    // Esta condición detecta el formato array y lo convierte a objetos
+    // para que el resto del código siempre trabaje con propiedades nombradas.
+    if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
+      setUsers(data.map((u) => ({ id: u[0], name: u[1], email: u[2] })));
+    } else {
+      setUsers(data); // la API ya devuelve objetos: los usamos directamente
+    }
+  }
+
+  // Pide confirmación antes de borrar para evitar eliminaciones accidentales.
+  // window.confirm devuelve true si el usuario acepta, false si cancela.
+  async function handleDelete(id) {
+    if (!window.confirm('¿Eliminar este usuario?')) return; // sale sin hacer nada si cancela
+    await deleteUser(id);
+    loadUsers(); // recarga la lista para reflejar el cambio
+  }
+
+  // Al hacer clic en "Editar":
+  // Guarda el objeto usuario en el estado → useEffect en UserForm
+  // detecta el cambio y pre-rellena los inputs automáticamente.
+  function handleEdit(user) {
+    setSelectedUser(user);
+  }
+
+  // Al hacer clic en "Cancelar" en el formulario:
+  // Limpia la selección → useEffect en UserForm limpia los inputs.
+  function handleCancelEdit() {
+    setSelectedUser(null);
+  }
+
+  // Callback que recibe UserForm cuando guarda exitosamente:
+  // 1. Limpia la selección (vuelve a modo creación)
+  // 2. Recarga la lista para mostrar los cambios
+  function handleSaved() {
+    setSelectedUser(null);
+    loadUsers();
+  }
+
+  return (
+    // container: centra el contenido con márgenes laterales automáticos
+    // py-4: padding vertical (arriba y abajo) de 1.5rem
+    <div className="container py-4">
+
+      <h2 className="mb-4">Gestión de Usuarios</h2>
+
+      {/* ── TARJETA DEL FORMULARIO ── */}
+      {/* mb-4: margen inferior para separar la tarjeta de la tabla */}
+      <div className="card mb-4">
+
+        {/* card-header: encabezado de la tarjeta.                             */}
+        {/* Muestra texto dinámico según si estamos creando o editando.        */}
+        <div className="card-header">
+          {selectedUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+        </div>
+
+        <div className="card-body">
+          {/* Pasa las 3 props necesarias al formulario:                        */}
+          {/*   onSaved      → qué hacer cuando se guarda                       */}
+          {/*   selectedUser → el usuario a editar (null si es creación nueva)  */}
+          {/*   onCancelEdit → qué hacer cuando se cancela la edición           */}
+          <UserForm
+            onSaved={handleSaved}
+            selectedUser={selectedUser}
+            onCancelEdit={handleCancelEdit}
+          />
+        </div>
+      </div>
+
+      {/* ── TARJETA DE LA TABLA ── */}
+      <div className="card">
+        <div className="card-header">Lista de Usuarios</div>
+
+        {/* p-0: quita el padding para que la tabla llegue a los bordes */}
+        <div className="card-body p-0">
+
+          {/* table-striped: filas alternas con fondo gris (mejora legibilidad) */}
+          {/* table-hover:   resalta la fila al pasar el cursor por encima      */}
+          {/* mb-0:          elimina el margen inferior por defecto de Bootstrap */}
+          <table className="table table-striped table-hover mb-0">
+
+            <thead className="table-dark"> {/* cabecera con fondo oscuro */}
+              <tr>
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {/* Renderizado condicional:                                    */}
+              {/* Si no hay usuarios → muestra una fila con mensaje.         */}
+              {/* Si hay usuarios → genera una fila por cada uno con .map()  */}
+              {users.length === 0 ? (
+                <tr>
+                  {/* colSpan="4": la celda se extiende por las 4 columnas */}
+                  <td colSpan="4" className="text-center text-muted py-3">
+                    No hay usuarios registrados.
+                  </td>
+                </tr>
+              ) : (
+                // .map() transforma el array de objetos en elementos JSX.
+                // key={u.id}: React necesita una clave única por elemento en
+                // listas para identificar qué filas cambiaron y actualizar
+                // el DOM de forma eficiente. NUNCA uses el índice como key
+                // si el orden puede cambiar.
+                users.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.id}</td>
+                    <td>{u.name}</td>
+                    <td>{u.email}</td>
+                    <td>
+                      {/* me-2: margin-right para separar los botones */}
+                      <button
+                        className="btn btn-sm btn-warning me-2"
+                        onClick={() => handleEdit(u)} {/* pasa el objeto completo */}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleDelete(u.id)} {/* pasa solo el id */}
+                      >
+                        Eliminar
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Users;
+```
+
+---
+
+## 8. La API REST esperada
+
+El frontend espera que el backend corra en `http://localhost:3000` y exponga:
+
+| Método | Endpoint | Descripción | Body requerido |
+|--------|----------|-------------|----------------|
+| GET | `/api/users` | Obtener todos los usuarios | — |
+| GET | `/api/users/:id` | Obtener un usuario por ID | — |
+| POST | `/api/users` | Crear un usuario | `{ "name": "...", "email": "..." }` |
+| PUT | `/api/users/:id` | Actualizar un usuario | `{ "name": "...", "email": "..." }` |
+| DELETE | `/api/users/:id` | Eliminar un usuario | — |
+
+**Ejemplo de respuesta esperada de `GET /api/users`:**
+
+```json
+[
+  { "id": 1, "name": "Juan Pérez", "email": "juan@ejemplo.com" },
+  { "id": 2, "name": "Ana García", "email": "ana@ejemplo.com" }
+]
+```
+
+> El frontend también soporta que la API devuelva arrays `[id, name, email]` en lugar de objetos, gracias a la normalización en `loadUsers()`.
+
+---
+
+## 9. Ejecutar el proyecto
+
+### Paso 1: Instalar dependencias
+
+```bash
+npm install
+```
+
+Este comando lee `package.json` y descarga todas las librerías a la carpeta `node_modules/`.
+
+### Paso 2: Asegurarte de que la API esté corriendo
+
+La API debe estar disponible en `http://localhost:3000` antes de iniciar el frontend. Sin ella, la lista de usuarios aparecerá vacía y las operaciones fallarán.
+
+### Paso 3: Iniciar el servidor de desarrollo
+
+```bash
+npm run dev
+```
+
+Abre tu navegador en `http://localhost:5173` — verás la aplicación funcionando.
+
+### Otros comandos útiles
+
+```bash
+npm run build    # Genera la versión optimizada de producción en la carpeta dist/
+npm run preview  # Sirve localmente la versión de producción para pruebas finales
+npm run lint     # Revisa errores de código con ESLint (buenas prácticas)
+```
+
+---
+
+## 10. Conceptos clave explicados
+
+### ¿Qué es un componente?
+Una función JavaScript que devuelve JSX. Es el bloque básico de React. Cada componente tiene su propio estado y puede recibir datos de su padre mediante **props**.
+
+### ¿Qué es el estado (`useState`)?
+Una variable que React "vigila". Cuando cambia, React re-dibuja automáticamente el componente. **Nunca modifiques el estado directamente** — siempre usa la función setter.
+
+```jsx
+const [users, setUsers] = useState([]); // valor inicial: array vacío
+// users    → el valor actual
+// setUsers → la función para actualizarlo
+setUsers([...users, nuevoUsuario]); // CORRECTO
+users.push(nuevoUsuario);           // INCORRECTO: React no detecta el cambio
+```
+
+### ¿Qué es `useEffect`?
+Un hook para ejecutar código con **efectos secundarios** (llamadas a APIs, suscripciones, etc.) después de que React renderiza el componente.
+
+```jsx
+useEffect(() => {
+  loadUsers(); // se ejecuta después del primer render
+}, []);        // [] vacío = solo una vez, al montar el componente
+               // [variable] = cada vez que `variable` cambie
+               // sin array = en cada render (raramente deseable)
+```
+
+### ¿Qué es JSX?
+La sintaxis que mezcla HTML y JavaScript. Reglas principales:
+- Usa `className` en lugar de `class` (porque `class` es palabra reservada en JS).
+- Todas las etiquetas deben cerrarse: `<input />`, no `<input>`.
+- Las expresiones JavaScript van entre llaves `{}`: `{user.name}`, `{2 + 2}`.
+- Solo puedes devolver **un elemento raíz** por componente (usa `<>...</>` si necesitas agrupar sin añadir un div).
+
+### ¿Qué son las props?
+Los parámetros que un componente padre pasa a un componente hijo. Son de **solo lectura**: el hijo nunca debe modificar sus props.
+
+```jsx
+// Padre envía datos:
+<UserForm onSaved={handleSaved} selectedUser={selectedUser} />
+
+// Hijo los recibe como parámetros de la función:
+function UserForm({ onSaved, selectedUser }) { ... }
+```
+
+### ¿Por qué `async/await`?
+Las llamadas HTTP tardan tiempo (van por la red). `async/await` permite esperar la respuesta antes de continuar, escribiendo código legible como si fuera síncrono.
+
+```js
+// SIN await: intenta usar la respuesta antes de que llegue → undefined
+const res = getUsers();
+console.log(res.data); // ERROR: res es una Promise, no la respuesta
+
+// CON await: espera a que la Promise se resuelva
+const res = await getUsers();
+console.log(res.data); // CORRECTO: ya tiene los datos
+```
+
+### ¿Qué es axios y `res.data`?
+Axios es la librería HTTP. Cada llamada devuelve una Promise que resuelve en un objeto con esta estructura:
+
+```js
+{
+  data: [...],    // ← los datos reales de la API (lo que devuelve el servidor)
+  status: 200,    // código HTTP
+  headers: {...}  // cabeceras de la respuesta
+}
+```
+
+Por eso siempre accedemos con `res.data`.
+
+---
+
+## Flujo completo de datos
+
+```
+Usuario escribe en el formulario
+  → handleChange() actualiza el estado `form`
+    → React re-renderiza los inputs con los nuevos valores
+
+Usuario hace clic en "Guardar"
+  → handleSubmit() en UserForm
+    → createUser(form) en user.api.js
+      → axios.post('http://localhost:3000/api/users', form)
+        → API REST guarda en base de datos
+        → responde con el usuario creado (status 201)
+    → onSaved() → handleSaved() en Users.jsx
+      → setSelectedUser(null)  → formulario vuelve a modo "Nuevo"
+      → loadUsers()            → getUsers() trae lista actualizada
+        → setUsers(data)       → React re-renderiza la tabla
+          → nueva fila aparece en la tabla
+```
