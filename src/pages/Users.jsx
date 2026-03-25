@@ -6,6 +6,8 @@ function Users() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [toast, setToast] = useState('');
+  const [search, setSearch] = useState('');
+
   useEffect(() => {
     loadUsers();
   }, []);
@@ -45,6 +47,10 @@ function Users() {
     loadUsers();
     showToast('Usuario guardado correctamente.');
   }
+
+  const filteredUsers = users.filter(u =>
+    u.name.toLowerCase().includes(search.toLowerCase())
+  );
   return (
     <div className="container py-4">
       <h2 className="mb-4">Gestión de Usuarios</h2>
@@ -65,7 +71,14 @@ function Users() {
       </div>
 
       <div className="card">
-        <div className="card-header">Lista de Usuarios</div>
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <span>Lista de Usuarios</span>
+          <input 
+          className="form-control w-50" 
+          placeholder='Buscar por nombre (usuario)' 
+          value={search}
+          onChange={e => setSearch(e.target.value)} />
+          </div>
         <div className="card-body p-0">
           <table className="table table-striped table-hover mb-0">
             <thead className="table-dark">
@@ -77,14 +90,14 @@ function Users() {
               </tr>
             </thead>
             <tbody>
-              {users.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="text-center text-muted py-3">
                     No hay usuarios registrados.
                   </td>
                 </tr>
               ) : (
-                users.map((u) => (
+                filteredUsers.map((u) => (
                   <tr key={u.id}>
                     <td>{u.id}</td>
                     <td>{u.name}</td>
