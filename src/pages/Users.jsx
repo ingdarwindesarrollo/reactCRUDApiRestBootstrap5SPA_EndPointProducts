@@ -5,6 +5,7 @@ import UserForm from '../components/UserForm';
 function Users() {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [toast, setToast] = useState('');
   useEffect(() => {
     loadUsers();
   }, []);
@@ -19,10 +20,16 @@ function Users() {
     }
   }
 
+  function showToast(message) {
+    setToast(message);
+    setTimeout(() => setToast(''), 3000);
+    } 
+
   async function handleDelete(id) {
     if (!window.confirm('¿Eliminar este usuario?')) return;
     await deleteUser(id);
     loadUsers();
+    showToast('Usuario eliminado correctamente.');
   }
 
   function handleEdit(user) {
@@ -36,10 +43,13 @@ function Users() {
   function handleSaved() {
     setSelectedUser(null);
     loadUsers();
+    showToast('Usuario guardado correctamente.');
   }
   return (
     <div className="container py-4">
       <h2 className="mb-4">Gestión de Usuarios</h2>
+
+      {toast && <div className="alert alert-success">{toast}</div>}
 
       <div className="card mb-4">
         <div className="card-header">
