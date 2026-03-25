@@ -5,6 +5,8 @@ import ProductForm from "../components/productForm";
 function Products() {
     const [products, setProducts] = useState([]);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [toast, setToast] = useState('');
+    const [search, setSearch] = useState('');
 
     useEffect(() => {
         loadProducts();
@@ -21,10 +23,16 @@ function Products() {
         }
     }
 
+    function showToast(msg) {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3000);
+    }
+
     async function handleDelete(id) {
-        if(!windows.confirm('¿Estás seguro de eliminar este producto?')) return;
+        if (!window.confirm('¿Estás seguro de eliminar este producto?')) return;
         await deleteProduct(id);
         loadProducts();
+        showToast('Producto eliminado correctamente.');
     }
 
     function handleEdit(product){
@@ -38,11 +46,22 @@ function Products() {
     function handleSaved(){
         setSelectedProduct(null);
         loadProducts();
+        showToast('Producto guardado correctamente.');
     }
+
+    const filteredProducts = products.filter(p =>
+        p.name.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div className="container py-4">
       <h2 className="mb-4">Gestión de Productos</h2>
+
+      {toast && (
+        <div className="alert alert-success" role="alert">
+          {toast}
+        </div>
+      )}
 
       {/* Tarjeta del formulario */}
       <div className="card mb-4">
@@ -62,7 +81,15 @@ function Products() {
 
       {/* Tarjeta de la tabla */}
       <div className="card">
-        <div className="card-header">Lista de Productos</div>
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <span>Lista de Productos</span>
+          <input
+            className="form-control w-50"
+            placeholder="Buscar por nombre..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
         <div className="card-body p-0">
           <table className="table table-striped table-hover mb-0">
             <thead className="table-dark">
@@ -75,16 +102,14 @@ function Products() {
             </thead>
             <tbody>
               {/* Si no hay productos, mostramos un mensaje */}
-              {products.length === 0 ? (
+              {filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan="4" className="text-center text-muted py-3">
                     No hay productos registrados.
                   </td>
                 </tr>
               ) : (
-                // Si hay productos, los recorremos con .map() y creamos una fila por cada uno.
-                // `key={p.id}` es obligatorio en React para identificar cada elemento de la lista.
-                products.map((p) => (
+                filteredProducts.map((p) => (
                   <tr key={p.id}>
                     <td>{p.id}</td>
                     <td>{p.name}</td>

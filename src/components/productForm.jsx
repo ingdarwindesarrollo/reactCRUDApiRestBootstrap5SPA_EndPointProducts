@@ -6,26 +6,41 @@ function ProductForm({onSaved, selectedProduct, onCancelEdit}) {
         name: '',
         price: ''
     });
+    const [priceError, setPriceError] = useState('');
+
     useEffect(() => {
         if (selectedProduct){
             setForm({name: selectedProduct.name, price: selectedProduct.price});
         }else{
             setForm({name:'', price: ''});
         }
+        setPriceError('');
     }, [selectedProduct]);
 
     function handleChange(e){
         setForm({...form, [e.target.name]: e.target.value});
+        if (e.target.name === 'price') {
+            if (Number(e.target.value) <= 0) {
+                setPriceError('El precio debe ser mayor que cero.');
+            } else {
+                setPriceError('');
+            }
+        }
     }
 
     async function handleSubmit(e){
         e.preventDefault();
+        if (Number(form.price) <= 0) {
+            setPriceError('El precio debe ser mayor que cero.');
+            return;
+        }
         if(selectedProduct){
             await updateProduct(selectedProduct.id, form);
         }else{
             await createProduct(form);        
         }
         setForm({name:'', price: ''});
+        setPriceError('');
         onSaved();
     }
     return (
@@ -43,12 +58,14 @@ function ProductForm({onSaved, selectedProduct, onCancelEdit}) {
 
                 <div className='col-md-4'>
                     <input 
-                    className='form-control' 
-                    name='price' 
+                    className={`form-control ${priceError ? 'is-invalid' : ''}`}
+                    name='price'
+                    type='number'
                     placeholder='Precio del producto' 
                     value={form.price} 
                     onChange={handleChange} 
                     required />
+                    {priceError && <div className='invalid-feedback'>{priceError}</div>}
                 </div>
 
                 <div className='col-md-3 d-flex gap-2'>
